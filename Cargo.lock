@@ -960,6 +960,7 @@ name = "max_express_bot"
 version = "0.1.0"
 dependencies = [
  "dotenv",
+ "dptree",
  "reqwest 0.12.4",
  "serde",
  "serde_json",

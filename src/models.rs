@@ -11,6 +11,19 @@ pub struct User {
     pub client_code: String
 }
 
+impl User {
+    pub fn new() -> User {
+        User {
+            id: 0,
+            first_name: String::new(),
+            last_name: String::new(),
+            phone_number: String::new(),
+            telegram_id: 0_i64,
+            client_code: String::new()
+        }
+    }
+}
+
 #[derive(Deserialize)]
 pub struct ProductStatus {
     pub code: String,

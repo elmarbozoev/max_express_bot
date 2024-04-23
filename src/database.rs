@@ -1,8 +1,11 @@
+use std::env;
+
 use sqlx::{query_as, query_scalar, PgPool};
 
 use sqlx::{query, Pool, Postgres};
 use crate::models::User;
 
+#[derive(Clone)]
 pub struct Db {
     pool: Pool<Postgres>
 }
@@ -14,12 +17,17 @@ impl Db {
         }
     }
 
+    pub async fn from_env() -> Db {
+        let url: String = env::var("DATABASE_URL").expect("ERROR: Could not get db url");
+        Self::new(&url).await
+    }
+
     pub async fn create_user(&self, mut new_user: User) {
         let count: i64 = query_scalar!("SELECT COUNT(*) AS user_count FROM users;")
             .fetch_all(&self.pool)
             .await.expect("ERROR: Could not get user count")[0].unwrap();
 
-        let client_code: String = "MX".to_string() + &count.to_string();
+        let client_code: String = "MX".to_string() + &(111 + count).to_string();
 
         new_user.client_code = client_code;
 
@@ -39,5 +47,11 @@ impl Db {
             .bind(telegram_id)
             .fetch_all(&self.pool)
             .await.expect("ERROR: Could not get user")[0].clone()
+    }
+
+    pub async fn check_user(&self, telegram_id: i64) -> bool {
+        query_scalar!("SELECT EXISTS (SELECT 1 FROM users WHERE telegram_id = $1);", telegram_id)
+            .fetch_all(&self.pool)
+            .await.expect("ERROR: Could check the user")[0].expect("ERROR: Could not check the user")
     }
 }
