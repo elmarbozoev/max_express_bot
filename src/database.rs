@@ -27,7 +27,7 @@ impl Db {
             .fetch_all(&self.pool)
             .await.expect("ERROR: Could not get user count")[0].unwrap();
 
-        let client_code: String = "MX".to_string() + &(111 + count).to_string();
+        let client_code: String = "MX".to_string() + &(200 + count).to_string();
 
         new_user.client_code = client_code;
 
