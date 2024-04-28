@@ -55,10 +55,14 @@ type BotDialogue = Dialogue<BotState, InMemStorage<BotState>>;
 
 impl BotService {
     pub async fn new(db_url: &str) -> BotService {
-        BotService {
+        let bot_service = BotService {
             bot: Bot::from_env(),
             db: Db::new(db_url).await
-        }
+        };
+
+        bot_service.db.init_table().await.expect("ERROR: Could init table");
+
+        bot_service
     }
 
     pub async fn from_env() -> BotService {

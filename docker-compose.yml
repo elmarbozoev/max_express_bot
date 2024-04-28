@@ -1,0 +1,28 @@
+version: '3.9'
+
+services:
+  max_express_bot:
+    container_name: max_express_bot
+    image: sjeinok/max_express_bot:1.0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '8080:8080'
+    depends_on:
+      - max_express_db
+  max_express_db:
+    container_name: max_express_db
+    image: postgres:12
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: kalmar2oo6
+      POSTGRES_DB: max_express_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata: /var/lib/postgresql/data
+
+volumes:
+  pgdata: {}
+
