@@ -1,5 +1,4 @@
 use bot::BotService;
-use dotenv::dotenv;
 
 mod models;
 mod vendor;
@@ -8,7 +7,11 @@ mod bot;
 
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
-    dotenv().ok();
+    env_logger::init();
+
+    log::info!("Starting max_express_bot");
+
+    dotenv::dotenv().ok();
 
     let bot = BotService::from_env().await;
 

@@ -1,6 +1,5 @@
-use std::{env, fs::File, io::Read, path::Path};
 use indoc::indoc;
-use teloxide::{dispatching::{dialogue::{self, Dialogue, GetChatId, InMemStorage}, Dispatcher, UpdateFilterExt}, payloads::{EditMessageTextSetters, SendDocumentSetters, SendMessageSetters}, requests::Requester, types::{CallbackQuery, ChatId, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, Message, MessageId, Update}, Bot};
+use teloxide::{dispatching::{dialogue::{self, Dialogue, GetChatId, InMemStorage}, Dispatcher, UpdateFilterExt}, payloads::{EditMessageTextSetters, SendMessageSetters}, requests::Requester, types::{CallbackQuery, ChatId, InlineKeyboardButton, InlineKeyboardMarkup, Message, MessageId, Update}, Bot};
 
 use crate::{database::Db, models::User, vendor::product_ready};
 
@@ -55,23 +54,21 @@ type BotDialogue = Dialogue<BotState, InMemStorage<BotState>>;
 
 impl BotService {
     pub async fn new(db_url: &str) -> BotService {
-        let bot_service = BotService {
+        log::info!("Initializing BotService: db url: {}", db_url);
+        BotService {
             bot: Bot::from_env(),
             db: Db::new(db_url).await
-        };
-
-        bot_service.db.init_table().await.expect("ERROR: Could init table");
-
-        bot_service
+        }
     }
 
     pub async fn from_env() -> BotService {
-        let url = env::var("DATABASE_URL")
+        let url = std::env::var("DATABASE_URL")
             .expect("ERROR: Could not get db url from env");
         Self::new(url.as_str()).await
     }
 
     pub async fn dispatch(&self) {
+        log::info!("Starting dispatching messages");
         let bot = self.bot.clone();
 
         let message_handler = Update::filter_message()
@@ -110,6 +107,7 @@ impl BotService {
     }
 
     async fn start(bot: Bot, dialogue: BotDialogue, msg: Message, db: Db) -> HandlerResult {
+        log::info!("Bot: start");
         let user_id = msg.from().expect("ERROR: user is unknown").id.0 as i64;
         
         if db.check_user(user_id).await {
@@ -145,6 +143,7 @@ impl BotService {
     }
 
     async fn init_register(bot: Bot, dialogue: BotDialogue, q: CallbackQuery) -> HandlerResult {
+        log::info!("Bot:: init_register");
         let chat_id = q.chat_id().unwrap();
 
         bot.send_message(chat_id, r#"
@@ -161,11 +160,10 @@ impl BotService {
     }
 
     async fn register_first_name(bot: Bot, dialogue: BotDialogue, msg: Message) -> HandlerResult {
-        let mut first_name = String::new();
-        
-        match msg.text() {
+        log::info!("Bot: register_first_name");
+        let first_name = match msg.text() {
             Some(text) => {
-                first_name = text.to_string();
+                text.to_string()
             },
             None => {
                 bot.send_message(msg.chat.id, indoc!(r#"
@@ -190,8 +188,7 @@ impl BotService {
     }
 
     async fn register_last_name(bot: Bot, dialogue: BotDialogue, msg: Message) -> HandlerResult {
-        let mut last_name = String::new();
-
+        log::info!("Bot: register_last_name");
         let first_name = match dialogue.get()
             .await?
             .expect("ERROR: SignInState have not first name") {
@@ -199,9 +196,9 @@ impl BotService {
                 _ => "".to_string()
         };
         
-        match msg.text() {
+        let last_name = match msg.text() {
             Some(text) => {
-                last_name = text.to_string();
+                text.to_string()
             },
             None => {
                 bot.send_message(msg.chat.id, indoc!(r#"
@@ -226,8 +223,7 @@ impl BotService {
     }
 
     async fn register_phone_number(bot: Bot, dialogue: BotDialogue, msg: Message, db: Db) -> HandlerResult {
-        let mut phone_number = String::new();
-
+        log::info!("Bot: register_phone_number");
         let (first_name, last_name) = match dialogue.get()
             .await?.unwrap() {
                 BotState::RegisterPhoneNumber { first_name, last_name }
@@ -237,9 +233,9 @@ impl BotService {
 
         let telegram_id = msg.from().expect("ERROR: user is unknown").id.0 as i64;
 
-        match msg.text() {
+        let phone_number = match msg.text() {
             Some(text) => {
-                phone_number = text.to_string();
+                text.to_string()
             },
             None => {
                 bot.send_message(msg.chat.id, indoc!(r#"
@@ -279,6 +275,7 @@ impl BotService {
     }
 
     async fn send_profile(bot: Bot, dialogue: BotDialogue, q: CallbackQuery, db: Db) -> HandlerResult {
+        log::info!("Bot: send_profile");
         let chat_id = q.chat_id().unwrap();
         let telegram_id = q.from.id.0 as i64;
         let user = db.get_user(telegram_id).await;
@@ -321,6 +318,7 @@ impl BotService {
     }
 
     async fn handle_pages(bot: Bot, dialogue: BotDialogue, q: CallbackQuery, db: Db) -> HandlerResult {
+        log::info!("Bot: handle_pages");
         let msg_id = match dialogue.get_or_default().await? {
             BotState::ProfilePages { msg_id } => msg_id,
             _ => MessageId(0)
@@ -368,6 +366,7 @@ impl BotService {
     }
 
     async fn handle_locate_btn(bot: Bot, dialogue: BotDialogue, chat_id: ChatId, msg_id: MessageId) -> HandlerResult {
+        log::info!("Bot: handle_locate_btn");
         let message = "Введите трек-код товара";
         dialogue.update(BotState::ProductStatus { msg_id }).await?;
 
@@ -377,15 +376,14 @@ impl BotService {
     }
 
     async fn get_product_status(bot: Bot, dialogue: BotDialogue, msg: Message) -> HandlerResult {
-        let mut track_code = String::new();
-        
+        log::info!("Bot: get_product_status");
         let markup = InlineKeyboardMarkup::new(
             vec![vec![InlineKeyboardButton::callback("Назад", "back_btn")]]
         );
 
-        match msg.text() {
+        let track_code = match msg.text() {
             Some(text) => {
-                track_code = text.to_string();
+                text.to_string()
             },
             None => {
                 let msg_id = bot.send_message(msg.chat.id, indoc!(r#"
@@ -414,6 +412,7 @@ impl BotService {
     }
 
     async fn handle_price_btn(bot: Bot, dialogue: BotDialogue, chat_id: ChatId, msg_id: MessageId) -> HandlerResult {
+        log::info!("Bot: handle_price_btn");
         let message = "Введите ширину коробки с товаром (см)";
 
         bot.edit_message_text(chat_id, msg_id, message).await?;
@@ -424,9 +423,8 @@ impl BotService {
     }
 
     async fn receive_width(bot: Bot, dialogue: BotDialogue, msg: Message) -> HandlerResult {
-        let mut width = 0_f32;
-        
-        width = match msg.text() {
+        log::info!("Bot: receive_width");
+        let width = match msg.text() {
             Some(text) => {
                 match text.to_string().parse::<f32>() {
                     Ok(num) => num,
@@ -466,8 +464,7 @@ impl BotService {
     }
 
     async fn receive_length(bot: Bot, dialogue: BotDialogue, msg: Message) -> HandlerResult {
-        let mut length = 0_f32;
-
+        log::info!("Bot: receive_length");
         let width = match dialogue.get()
             .await?
             .expect("ERROR") {
@@ -475,9 +472,9 @@ impl BotService {
                 _ => 0_f32
         };
         
-        match msg.text() {
+        let length = match msg.text() {
             Some(text) => {
-                length = match text.to_string().parse::<f32>() {
+                match text.to_string().parse::<f32>() {
                     Ok(num) => num,
                     Err(_) => {
                         bot.send_message(msg.chat.id, indoc!(r#"
@@ -489,7 +486,7 @@ impl BotService {
 
                         return Ok(());
                     }
-                };
+                }
             },
             None => {
                 bot.send_message(msg.chat.id, indoc!(r#"
@@ -513,8 +510,7 @@ impl BotService {
     }
 
     async fn receive_height(bot: Bot, dialogue: BotDialogue, msg: Message) -> HandlerResult {
-        let mut height = 0_f32;
-
+        log::info!("Bot: receive_height");
         let (width, length) = match dialogue.get()
             .await?.unwrap() {
                 BotState::PriceHeight { width, length }
@@ -522,9 +518,9 @@ impl BotService {
                 _ => (0_f32, 0_f32)
         };
 
-        match msg.text() {
+        let height = match msg.text() {
             Some(text) => {
-                height = match text.to_string().parse::<f32>() {
+                match text.to_string().parse::<f32>() {
                     Ok(num) => num,
                     Err(_) => {
                         bot.send_message(msg.chat.id, indoc!(r#"
@@ -536,7 +532,7 @@ impl BotService {
 
                         return Ok(());
                     }
-                };
+                }
             },
             None => {
                 bot.send_message(msg.chat.id, indoc!(r#"
@@ -558,8 +554,7 @@ impl BotService {
     }
 
     async fn receive_weight(bot: Bot, dialogue: BotDialogue, msg: Message) -> HandlerResult {
-        let mut weight = 0_f32;
-
+        log::info!("Bot: receive_weight");
         let (width, length, height) = match dialogue.get()
             .await?.unwrap() {
                 BotState::PriceWeight { width, length, height }
@@ -567,9 +562,9 @@ impl BotService {
                 _ => (0_f32, 0_f32, 0_f32)
         };
 
-        match msg.text() {
+        let weight = match msg.text() {
             Some(text) => {
-                weight = match text.to_string().parse::<f32>() {
+                match text.to_string().parse::<f32>() {
                     Ok(num) => num,
                     Err(_) => {
                         bot.send_message(msg.chat.id, indoc!(r#"
@@ -581,7 +576,7 @@ impl BotService {
 
                         return Ok(());
                     }
-                };
+                }
             },
             None => {
                 bot.send_message(msg.chat.id, indoc!(r#"
@@ -617,6 +612,7 @@ impl BotService {
     }
 
     async fn handle_code_btn(bot: Bot, tg_id: i64, chat_id: ChatId, msg_id: MessageId, markup: InlineKeyboardMarkup, db: Db) -> HandlerResult {
+        log::info!("Bot: handle_code_btn");
         let client_code = db.get_user(tg_id).await.client_code;
 
         bot.edit_message_text(chat_id, msg_id, client_code).reply_markup(markup).await?;
@@ -625,6 +621,7 @@ impl BotService {
     }
 
     async fn handle_address_btn(bot: Bot, tg_id: i64, chat_id: ChatId, msg_id: MessageId, markup: InlineKeyboardMarkup, db: Db) -> HandlerResult {
+        log::info!("Bot: handle_address_btn");
         let client_code = db.get_user(tg_id).await.client_code;
 
         let message = format!(indoc!(r#"
@@ -640,6 +637,7 @@ impl BotService {
     }
 
     async fn handle_service_btn(bot: Bot, chat_id: ChatId, msg_id: MessageId, markup: InlineKeyboardMarkup) -> HandlerResult {
+        log::info!("Bot: handle_service_btn");
         let message = indoc!(r#"
         Контакты тех. поддержки:
         +996706518003
@@ -651,6 +649,7 @@ impl BotService {
     }
 
     async fn handle_tutorial_btn(bot: Bot, dialogue: BotDialogue, chat_id: ChatId, msg_id: MessageId) -> HandlerResult {
+        log::info!("Bot: handle_tutorial_btn");
         let markup = InlineKeyboardMarkup::new(
             vec![
             vec![
@@ -676,6 +675,7 @@ impl BotService {
     }
 
     async fn handle_tutorials(bot: Bot, dialogue: BotDialogue, q: CallbackQuery) -> HandlerResult {
+        log::info!("Bot: handle_tutorials");
         let mut msg_id = match dialogue.get().await?.unwrap() {
             BotState::Tutorial { msg_id } => msg_id,
             _ => MessageId(0)
@@ -684,19 +684,19 @@ impl BotService {
         let message = match q.clone().data.unwrap().as_str() {
             "1688_btn" => format!(indoc!(r#"
                     Инструкция к 1688:
-                    {}"#), env::var("HELP_1688")?),
+                    {}"#), std::env::var("HELP_1688")?),
             "pinduoduo_btn" => format!(indoc!(r#"
                     Инструкция к Pinduoduo:
-                    {}"#), env::var("HELP_PINDUODUO")?),
+                    {}"#), std::env::var("HELP_PINDUODUO")?),
             "poizon_btn" => format!(indoc!(r#"
                     Инструкция к Poizon:
-                    {}"#), env::var("HELP_POIZON")?),
+                    {}"#), std::env::var("HELP_POIZON")?),
             "taobao_btn" => format!(indoc!(r#"
                     Инструкция к TaoBao:
-                    {}"#), env::var("HELP_TAOBAO")?),
+                    {}"#), std::env::var("HELP_TAOBAO")?),
             _ => format!(indoc!("
                     Инструкция к TaoBao:
-                    {}"), env::var("HELP_TAOBAO")?)
+                    {}"), std::env::var("HELP_TAOBAO")?)
         };
 
         let markup = InlineKeyboardMarkup::new(
@@ -713,6 +713,7 @@ impl BotService {
     }
 
     async fn handle_invalid_query(bot: Bot, chat_id: ChatId, msg_id: MessageId, markup: InlineKeyboardMarkup) -> HandlerResult {
+        log::info!("Bot: handle_invalid_query");
         bot.edit_message_text(chat_id, msg_id, "Произошла ошибка").reply_markup(markup).await?;
         
         Ok(())

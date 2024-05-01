@@ -1,7 +1,3 @@
-use std::env;
-use std::fs::File;
-use std::io::Read;
-
 use sqlx::{query_as, query_scalar, PgPool};
 
 use sqlx::{query, Pool, Postgres};
@@ -17,25 +13,6 @@ impl Db {
         Db {
             pool: PgPool::connect(url).await.expect("ERROR: Could not connect the database")
         }
-    }
-
-    pub async fn from_env() -> Db {
-        let url: String = env::var("DATABASE_URL").expect("ERROR: Could not get db url");
-        Self::new(&url).await
-    }
-
-    pub async fn init_table(&self) -> Result<(), impl std::error::Error> {
-        let mut users_table = String::new();
-
-        match File::open("../migrations/create_users_table.sql") {
-            Ok(mut f) => f.read_to_string(&mut users_table).expect("ERROR: Could not read"),
-            Err(e) => { return Err(e); }
-        };
-
-        query(&users_table)
-            .fetch_all(&self.pool).await.expect("ERROR: Could not create a user table");
-
-        Ok(())
     }
 
     pub async fn create_user(&self, mut new_user: User) {
