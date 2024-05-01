@@ -13,7 +13,7 @@ async fn main() -> Result<(), sqlx::Error> {
 
     dotenv::dotenv().ok();
 
-    let bot = BotService::from_env().await;
+    let bot = BotService::new().await;
 
     bot.dispatch().await;
 

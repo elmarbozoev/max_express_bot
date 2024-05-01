@@ -53,18 +53,13 @@ type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 type BotDialogue = Dialogue<BotState, InMemStorage<BotState>>;
 
 impl BotService {
-    pub async fn new(db_url: &str) -> BotService {
-        log::info!("Initializing BotService: db url: {}", db_url);
+    pub async fn new() -> BotService {
+        log::info!("Initializing BotService");
+
         BotService {
             bot: Bot::from_env(),
-            db: Db::new(db_url).await
+            db: Db::new().await
         }
-    }
-
-    pub async fn from_env() -> BotService {
-        let url = std::env::var("DATABASE_URL")
-            .expect("ERROR: Could not get db url from env");
-        Self::new(url.as_str()).await
     }
 
     pub async fn dispatch(&self) {

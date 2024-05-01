@@ -1,17 +1,31 @@
+use sqlx::postgres::PgConnectOptions;
 use sqlx::{query_as, query_scalar, PgPool};
 
-use sqlx::{query, Pool, Postgres};
+use sqlx::query;
 use crate::models::User;
 
 #[derive(Clone)]
 pub struct Db {
-    pool: Pool<Postgres>
+    pool: PgPool
 }
 
 impl Db {
-    pub async fn new(url: &str) -> Db {
+    pub async fn new() -> Db {
+        let pg_user = std::env::var("POSTGRES_USER").expect("ERROR: Could not get POSTGRES_USER");
+        let pg_password = std::env::var("POSTGRES_PASSWORD").expect("ERROR: Could not get POSTGRES_PASSWORD");
+        let pg_host = std::env::var("POSTGRES_HOST").expect("ERROR: Could not get POSTGRES_HOST");
+        let pg_port = std::env::var("POSTGRES_PORT").expect("ERROR: Could not get POSTGRES_PORT");
+        let pg_db = std::env::var("POSTGRES_DB").expect("ERROR: Could not get POSTGRES_DB");
+
+        let opt = PgConnectOptions::new()
+            .host(&pg_host)
+            .port(pg_port.parse().expect("ERROR: Could not parse port string into u16"))
+            .database(&pg_db)
+            .username(&pg_user)
+            .password(&pg_password);
+
         Db {
-            pool: PgPool::connect(url).await.expect("ERROR: Could not connect the database")
+            pool: PgPool::connect_with(opt).await.expect("ERROR: Could not connect the database")
         }
     }
 
